@@ -1,0 +1,96 @@
+<script>
+function randomString(len){
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let s = "";
+  for(let i=0;i<len;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+function now(){ return Date.now(); }
+
+function formatTimeLeft(ms){
+  if(ms <= 0) return "Hết hạn";
+  let sec = Math.floor(ms/1000);
+  const days = Math.floor(sec / 86400); sec %= 86400;
+  const hrs = Math.floor(sec / 3600); sec %= 3600;
+  const mins = Math.floor(sec / 60); sec %= 60;
+  let parts = [];
+  if(days>0) parts.push(days+" ngày");
+  if(hrs>0) parts.push(hrs+" giờ");
+  if(mins>0) parts.push(mins+" phút");
+  if(sec>0 && days===0) parts.push(sec+" giây");
+  return parts.join(" ");
+}
+
+function generateKey(){
+  const validity = parseInt(document.getElementById('validity').value);
+  const keys = JSON.parse(localStorage.getItem('miyu_keys')||'[]');
+  const active = keys.filter(k=>k.expires>now()).map(k=>k.key);
+  let key;
+  do {
+    key = 'MIYU-' + randomString(27);
+  } while(active.includes(key));
+  const expires = now() + validity*60*60*1000;
+  keys.push({key, created: now(), expires});
+  localStorage.setItem('miyu_keys', JSON.stringify(keys));
+  renderKeys();
+  exportActiveKeys();
+}
+
+function copyKey(key){
+  navigator.clipboard.writeText(key).then(()=>{
+    alert("✅ Đã sao chép: " + key);
+  });
+}
+
+function renderKeys(){
+  const el = document.getElementById('keyList');
+  const keys = JSON.parse(localStorage.getItem('miyu_keys')||'[]');
+  const nowTime = now();
+  el.innerHTML = '';
+  const updated = keys.filter(k=>k.expires > nowTime);
+  localStorage.setItem('miyu_keys', JSON.stringify(updated));
+  updated.sort((a,b)=>b.created-a.created).forEach(k=>{
+    const div = document.createElement('div');
+    div.className = 'key-item';
+    const left = document.createElement('div');
+    left.className = 'key-text';
+    left.textContent = k.key;
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-btn';
+    copyBtn.innerHTML = '📋';
+    copyBtn.onclick = ()=>copyKey(k.key);
+
+    const right = document.createElement('div');
+    const timeLeft = formatTimeLeft(k.expires - nowTime);
+    right.innerHTML = '✅ Còn hạn<br><span class="time-left">'+timeLeft+'</span>';
+
+    div.appendChild(left);
+    div.appendChild(copyBtn);
+    div.appendChild(right);
+    el.appendChild(div);
+  });
+}
+
+async function exportActiveKeys(){
+  const keys = JSON.parse(localStorage.getItem('miyu_keys')||'[]');
+  const activeKeys = keys.filter(k=>k.expires > now()).map(k=>k.key);
+  const content = activeKeys.join('\n');
+  
+  // Gửi dữ liệu lên server update.php
+  await fetch("update.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "content=" + encodeURIComponent(content)
+  }).then(res => res.text()).then(txt => console.log(txt));
+}
+
+setInterval(()=>{
+  renderKeys();
+  exportActiveKeys();
+}, 30000);
+
+renderKeys();
+exportActiveKeys();
+</script>
