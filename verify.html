@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xác thực Key MIYU</title>
+<style>
+  body {
+    background: #0e0b16;
+    font-family: 'Segoe UI', sans-serif;
+    color: #fff;
+    text-align: center;
+    padding: 40px;
+  }
+  h1 { color: #d49eff; text-shadow: 0 0 10px #b166ff; }
+  input {
+    padding: 10px;
+    width: 260px;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+    margin-top: 20px;
+    text-align: center;
+    font-size: 16px;
+  }
+  button {
+    background: linear-gradient(135deg, #b166ff, #ff66cc);
+    border: none;
+    color: white;
+    font-weight: bold;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+    box-shadow: 0 0 10px #b166ff;
+  }
+  button:hover { opacity: 0.9; }
+  .msg {
+    margin-top: 15px;
+    font-size: 15px;
+    color: #ccc;
+  }
+</style>
+</head>
+<body>
+<h1>🔐 Xác thực Key MIYU</h1>
+<p>Nhập key còn hạn để truy cập nội dung đặc biệt</p>
+
+<div id="verifyBox">
+  <input type="text" id="userKey" placeholder="Nhập key MIYU..." />
+  <br>
+  <button onclick="verifyKey()">Xác nhận</button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+// ===== Cấu hình =====
+const GITHUB_USERNAME = "nguyenhuy2123123"; // ← thay bằng tên GitHub của bạn
+const REPO_NAME = "key-miyu-";
+const FILE_PATH = "active_keys.txt";
+const REDIRECT_URL = "https://www.mediafire.com/folder/j8o5x765anmgi/Key-miyu"; // ← trang web được truy cập khi key hợp lệ
+
+// ===== Kiểm tra key đã lưu (nếu có) =====
+window.addEventListener("load", () => {
+  const savedKey = localStorage.getItem("miyu_valid_key");
+  if(savedKey) {
+    console.log("🔎 Đang kiểm tra key đã lưu:", savedKey);
+    checkKey(savedKey, true);
+  }
+});
+
+async function verifyKey(){
+  const key = document.getElementById("userKey").value.trim();
+  if(!key){
+    showMsg("⚠️ Vui lòng nhập key!");
+    return;
+  }
+  await checkKey(key, false);
+}
+
+async function checkKey(key, isAutoCheck){
+  showMsg("⏳ Đang kiểm tra key...");
+  try {
+    const url = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/${FILE_PATH}?t=${Date.now()}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("Không thể tải danh sách key.");
+    const text = await res.text();
+    const keys = text.split(/\r?\n/).map(k => k.trim()).filter(k => k.length > 0);
+
+    if(keys.includes(key)){
+      localStorage.setItem("miyu_valid_key", key);
+      showMsg("✅ Key hợp lệ! Đang chuyển hướng...");
+      setTimeout(() => window.location.href = REDIRECT_URL, 1200);
+    } else {
+      // Nếu là kiểm tra tự động => xóa key cũ, bắt nhập lại
+      if(isAutoCheck){
+        localStorage.removeItem("miyu_valid_key");
+        showMsg("❌ Key đã hết hạn hoặc bị xóa, vui lòng nhập lại.");
+      } else {
+        showMsg("❌ Key không hợp lệ hoặc đã hết hạn.");
+      }
+    }
+  } catch(e){
+    console.error(e);
+    showMsg("⚠️ Lỗi khi kiểm tra key.");
+  }
+}
+
+function showMsg(txt){
+  document.getElementById("msg").textContent = txt;
+}
+</script>
+</body>
+</html>
